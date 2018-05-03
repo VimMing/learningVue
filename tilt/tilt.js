@@ -23,7 +23,7 @@ function tilt(dom, config) {
             let wrap = document.createElement('div');
             let domParent = dom.parentNode;
             if(config) Object.assign(opts, config)
-            domParent.replaceChild(wrap, dom);
+            domParent.replaceChild(wrap, dom)
             wrap.appendChild(dom);
             wrap.style.perspective = opts.perspective
             dom.style.transition = "transform 0.5s ease"
@@ -53,10 +53,10 @@ function tilt(dom, config) {
                     rotateDegX = ((opts._y - y) / (Math.floor(opts._h / 2)))*opts.weights
                 dom.style.transform = `rotateX(${rotateDegX}deg) rotateY(${rotateDegY}deg)`
             }
-        });
+        })
         dom.addEventListener('mouseleave', (e) => {
             dom.style.transform = `rotateX(0deg) rotateY(0deg)`
-        });    
+        })
         
         window.addEventListener("resize", (e) => {
             if(opts.timeoutId) clearTimeout(opts.timeoutId)
