@@ -1,9 +1,3 @@
-###javascript 练习
+### 学习
 
-1. 容器倾斜效果 [tilt.js](./tilt/tilt.js)
-
-![tilt](./tilt/tilt.gif)
-
-2. 滑动效果 [slide.js](./slide/index.js)
-
-![slide](./slide/slide.gif)
+https://www.webpackjs.com/guides/getting-started/#%E5%9F%BA%E6%9C%AC%E5%AE%89%E8%A3%85
