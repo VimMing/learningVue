@@ -1,3 +1,5 @@
-export default function helloWorld(){
-    console.log('hello world')
+function test() {
+    return 'hello world'
 }
+
+export default test
