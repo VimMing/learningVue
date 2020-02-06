@@ -4,7 +4,7 @@
 // https://karma-runner.github.io/4.0/config/plugins.html
 // https://github.com/webpack-contrib/karma-webpack  // karma-webpack的地址
 /*******************************/
-var webpackConfig = require('./webpack.test')
+var webpackConfig = require('./webpack.test.config')
 delete webpackConfig.entry
 webpackConfig.devtool = 'inline-source-map'
 module.exports = function (config) {

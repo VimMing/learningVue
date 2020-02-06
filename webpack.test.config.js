@@ -1,12 +1,6 @@
 var path = require('path')
 var webpack = require('webpack')
-console.log(path.resolve(__dirname, './node_modules'))
 module.exports = {
-    entry: './test/unit/specs/index.js',
-    output: {
-        path: path.resolve(__dirname, './test/unit'),
-        filename: 'specs.js'
-    },
     resolve: {
         alias: {
             src: path.resolve(__dirname, './src')
