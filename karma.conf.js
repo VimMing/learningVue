@@ -12,10 +12,10 @@ module.exports = function (config) {
     frameworks: ['mocha'],
 
     files: [
-      'test/**/*.js'
+      'test/index.js'
     ],
     preprocessors: {
-      'test/**/*.js': ['webpack', 'sourcemap']
+      'test/index.js': ['webpack', 'sourcemap']
     },
     browsers: ['Chrome'],
     webpack: webpackConfig,
