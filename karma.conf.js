@@ -5,20 +5,20 @@
 // https://github.com/webpack-contrib/karma-webpack  // karma-webpack的地址
 /*******************************/
 var webpackConfig = require('./webpack.test.config')
-delete webpackConfig.entry
-webpackConfig.devtool = 'inline-source-map'
+delete webpackConfig.entry // 不需要入口文件， 
+webpackConfig.devtool = 'inline-source-map' // devtool 由 karma-sourcemap-loader处理
 module.exports = function (config) {
   config.set({
-    frameworks: ['mocha'],
+    frameworks: ['mocha'], // 测试框架 mocha
 
     files: [
-      'test/index.js'
+      'test/index.js' // 测试入口文件 test下面的index.js
     ],
     preprocessors: {
-      'test/index.js': ['webpack', 'sourcemap']
+      'test/index.js': ['webpack', 'sourcemap'] // test/index.js 由webpack 和 sourcemap预处理 
     },
     browsers: ['Chrome'],
-    webpack: webpackConfig,
+    webpack: webpackConfig, // webpack的配置
     webpackMiddleware: {
       noInfo: true
     },
