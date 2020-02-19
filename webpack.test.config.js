@@ -1,6 +1,7 @@
 var path = require('path')
 var webpack = require('webpack')
 module.exports = {
+    mode: 'development',
     resolve: {
         alias: {
             src: path.resolve(__dirname, './src')
