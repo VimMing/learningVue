@@ -1,11 +1,10 @@
-import Utils from 'src/utils' // webpack上面配置的别名, 被测试代码所在目录
-import alias from 'src/utils'
+import config from 'src/config' // webpack上面配置的别名, 被测试代码所在目录
+const Utils = require('src/utils'), utils = Utils
 import Vue from 'src'
 var expect = require('chai').expect;  // 引入chai的expect
+var assert = require('chai').assert
 
 describe('Utils', function () {
-    // console.log(alias, Utils)
-    console.log(alias === Utils)
     describe('normalizeKeypath', function () {
         it('shold work on brackets with quates', function () {
             expect(Utils.normalizeKeypath(`["a"]['b']["c"]`)).to.be.equal('.a.b.c')
@@ -89,6 +88,227 @@ describe('Utils', function () {
             expect(JSON.stringify(a), 'stringifiable').to.be.equal('{"test":1}')
             a.test = 2
             expect(a.test).to.be.equal(2)
+        })
+    })
+    describe('isObject', function () {
+
+        it('should return correct result', function () {
+            var iso = utils.isObject
+            assert.ok(iso({}))
+            assert.notOk(iso([]))
+            assert.notOk(iso(1))
+            assert.notOk(iso(true))
+            assert.notOk(iso(null))
+            assert.notOk(iso(undefined))
+            assert.ok(iso(document.createElement('div')))
+        })
+
+    })
+    describe('isTrueObject', function () {
+
+        it('should return correct result', function () {
+            var iso = utils.isTrueObject
+            assert.ok(iso({}))
+            assert.notOk(iso([]))
+            assert.notOk(iso(1))
+            assert.notOk(iso(true))
+            assert.notOk(iso(null))
+            assert.notOk(iso(undefined))
+            assert.notOk(iso(document.createElement('div')))
+        })
+
+    })
+    describe('guard', function () {
+
+        it('should output empty string if value is null or undefined', function () {
+            assert.strictEqual(utils.guard(undefined), '')
+            assert.strictEqual(utils.guard(null), '')
+        })
+
+        it('should output stringified data if value is object', function () {
+            assert.strictEqual(utils.guard({ a: 1 }), '{"a":1}')
+            assert.strictEqual(utils.guard([1, 2, 3]), '[1,2,3]')
+        })
+
+    })
+    describe('extend', function () {
+
+        it('should extend the obj with extension obj', function () {
+            var a = { a: 1 }, b = { a: {}, b: 2 }
+            utils.extend(a, b)
+            assert.strictEqual(a.a, b.a)
+            assert.strictEqual(a.b, b.b)
+        })
+
+        it('should always return the extended object', function () {
+            var a = { a: 1 }, b = { a: {}, b: 2 }
+            assert.strictEqual(a, utils.extend(a, b))
+            assert.strictEqual(a, utils.extend(a, undefined))
+        })
+
+    })
+    describe('unique', function () {
+
+        it('should filter an array with duplicates into unqiue ones', function () {
+            var arr = [1, 2, 3, 1, 2, 3, 4, 5],
+                res = utils.unique(arr),
+                l = res.length
+            assert.strictEqual(l, 5)
+            while (--l) {
+                assert.strictEqual(res[l], 5 - l)
+            }
+        })
+
+    })
+    describe('bind', function () {
+
+        it('should bind the right context', function () {
+            function test(v1, v2) {
+                return this + 1
+            }
+            var bound = utils.bind(test, 2)
+            assert.strictEqual(bound(), 3)
+        })
+
+    })
+    describe('toConstructor', function () {
+
+        it('should convert an non-VM object to a VM constructor', function () {
+            var a = { test: 1 },
+                A = utils.toConstructor(a)
+            assert.ok(A.prototype instanceof Vue)
+            // assert.strictEqual(A.options, a)
+        })
+
+        it('should return the argument if it is already a consutructor', function () {
+            var A = utils.toConstructor(Vue)
+            assert.strictEqual(A, Vue)
+        })
+
+    })
+
+    describe('log', function () {
+
+        if (!window.console) return
+
+        it('should only log in debug mode', function () {
+            // overwrite log temporarily
+            var oldLog = console.log,
+                logged
+            console.log = function (msg) {
+                logged = msg
+            }
+
+            utils.log('123')
+            assert.notOk(logged)
+
+            config.debug = true
+            utils.log('123')
+            assert.strictEqual(logged, '123')
+
+            // teardown
+            config.debug = false
+            console.log = oldLog
+        })
+
+    })
+
+    describe('warn', function () {
+
+        if (!window.console) return
+
+        it('should only warn when not in silent mode', function () {
+            config.silent = true
+            var oldWarn = console.warn,
+                warned
+            console.warn = function (msg) {
+                warned = msg
+            }
+
+            utils.warn('123')
+            assert.notOk(warned)
+
+            config.silent = false
+            utils.warn('123')
+            assert.strictEqual(warned, '123')
+
+            console.warn = oldWarn
+        })
+
+        it('should also trace in debug mode', function () {
+            config.silent = false
+            config.debug = true
+            var oldTrace = console.trace,
+                oldWarn = console.warn,
+                traced
+            console.warn = function () { }
+            console.trace = function () {
+                traced = true
+            }
+
+            utils.warn('testing trace')
+            assert.ok(traced)
+
+            config.silent = true
+            config.debug = false
+            console.trace = oldTrace
+            console.warn = oldWarn
+        })
+
+    })
+
+    describe('addClass', function () {
+
+        var el = document.createElement('div')
+
+        it('should work', function () {
+            utils.addClass(el, 'hihi')
+            assert.strictEqual(el.className, 'hihi')
+            utils.addClass(el, 'hi')
+            assert.strictEqual(el.className, 'hihi hi')
+        })
+
+        it('should not add duplicate', function () {
+            utils.addClass(el, 'hi')
+            assert.strictEqual(el.className, 'hihi hi')
+        })
+
+    })
+
+    describe('removeClass', function () {
+
+        it('should work', function () {
+            var el = document.createElement('div')
+            el.className = 'hihi hi ha'
+            utils.removeClass(el, 'hi')
+            assert.strictEqual(el.className, 'hihi ha')
+            utils.removeClass(el, 'ha')
+            assert.strictEqual(el.className, 'hihi')
+        })
+
+    })
+
+    describe('checkNumber', function () {
+        it('should work checkNumber', function () {
+            assert.strictEqual(utils.checkNumber(123), 123)
+            assert.strictEqual(utils.checkNumber('123'), 123)
+            assert.strictEqual(utils.checkNumber(null), null)
+            assert.strictEqual(utils.checkNumber(undefined), undefined)
+            assert.strictEqual(utils.checkNumber('abc'), 'abc')
+        })
+    })
+
+    describe('objectToArray', function () {
+        var test = { a: 1 }
+        it('should work objectToArray', function () {
+            var val = utils.objectToArray(test)
+            assert.strictEqual(val[0].$key, 'a')
+            assert.strictEqual(val[0].$value, 1)
+            let obj = {}
+            test = {a: obj}
+            val = utils.objectToArray(test)
+            assert.strictEqual(val[0].$key, 'a')
+            assert.strictEqual(val[0], obj)
         })
     })
 });

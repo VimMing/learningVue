@@ -18,5 +18,23 @@ ViewModel.config = function (opts, val) {
     return this
 }
 
+ViewModel.extend = extend
+function extend (options) {
+    var ParentVM = this
+    var ExtendedVM = function (opts, asParent) {
+        if (!asParent) {
+            opts = inheritOptions(opts, options, true)
+        }
+        ParentVM.call(this, opts, true)
+    }
+    var proto = ExtendedVM.prototype = Object.create(ParentVM.prototype) // ExtendedVM.prototype继承ParentVM.prototype 
+    utils.defProtected(proto, 'constructor', ExtendedVM) // prototype的constructor指向构造函数
+    return ExtendedVM
+}
+
+function inheritOptions(opts){
+
+    return opts
+}
 module.exports = ViewModel
 
