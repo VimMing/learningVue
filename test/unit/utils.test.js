@@ -2,7 +2,7 @@ import config from 'src/config' // webpack上面配置的别名, 被测试代码
 const Utils = require('src/utils'), utils = Utils
 import Vue from 'src'
 var expect = require('chai').expect;  // 引入chai的expect
-var assert = require('chai').assert
+var assert = require('chai').assert;
 
 describe('Utils', function () {
     describe('normalizeKeypath', function () {
