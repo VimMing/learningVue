@@ -59,10 +59,10 @@ describe('Text Parser', function () {
             assert.strictEqual(TextParser.parseAttr('ha {{msg + "123"}} ho'), '"ha "+(msg + "123")+" ho"')
         })
 
-        // it('should extract and inline any filters', function () {
-        //     var res = TextParser.parseAttr('a {{msg | test}} b')
-        //     assert.strictEqual(res, '"a "+(this.$compiler.getOption("filters", "test").call(this,msg))+" b"')
-        // })
+        it('should extract and inline any filters', function () {
+            var res = TextParser.parseAttr('a {{msg | test}} b')
+            assert.strictEqual(res, '"a "+(this.$compiler.getOption("filters", "test").call(this,msg))+" b"')
+        })
     })
 
 })

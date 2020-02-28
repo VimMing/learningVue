@@ -1,2 +1,146 @@
-exports.parse = () => { }
-exports.inlineFilters = () => { }
+var dirId = 1,
+    ARG_RE = /^[^\{\?]+$/, // 参数
+    FILTER_TOKEN_RE = /[^\s'"]+|'[^']+'|"[^"]+"/g, // filter关键字
+    // NESTING_RE = /^\$(parent|root)\./,
+    // SINGLE_VAR_RE = /^[\w\.$]+$/,
+    QUOTE_RE = /"/g,
+    TextParser = require('./text-parser')
+function Directive() {
+
+}
+
+/**
+ *  Parse a directive string into an Array of
+ *  AST-like objects representing directives
+ * 解析指令
+ *  1. 指令与指令以,分割同时满足(,[,{闭合
+ *  2. 指令由 arg, key, filters组成
+ */
+Directive.parse = function (str) {
+
+    var inSingle = false, // '
+        inDouble = false, // "
+        curly = 0, // {
+        square = 0, // [
+        paren = 0, // (
+        begin = 0, // 开始的index
+        argIndex = 0,  // 参数的index
+        dirs = [], // 指令解析完后返回的数组
+        dir = {}, // 临时的指令
+        lastFilterIndex = 0, //
+        arg // 参数
+
+    for (var c, i = 0, l = str.length; i < l; i++) {
+        c = str.charAt(i)
+        if (inSingle) {
+            // check single quote
+            if (c === "'") inSingle = !inSingle
+        } else if (inDouble) {
+            // check double quote
+            if (c === '"') inDouble = !inDouble
+        } else if (c === ',' && !paren && !curly && !square) {
+            // reached the end of a directive, [,{,(都配对了
+            pushDir()
+            // reset & skip the comma
+            dir = {}
+            begin = argIndex = lastFilterIndex = i + 1
+        } else if (c === ':' && !dir.key && !dir.arg) {
+            // argument 
+            arg = str.slice(begin, i).trim()
+            if (ARG_RE.test(arg)) {
+                argIndex = i + 1
+                dir.arg = arg
+            }
+        } else if (c === '|' && str.charAt(i + 1) !== '|' && str.charAt(i - 1) !== '|') {
+            if (dir.key === undefined) {
+                // first filter, end of key
+                lastFilterIndex = i + 1
+                dir.key = str.slice(argIndex, i).trim()
+            } else {
+                // already has filter
+                pushFilter()
+            }
+        } else if (c === '"') {
+            inDouble = true
+        } else if (c === "'") {
+            inSingle = true
+        } else if (c === '(') {
+            paren++
+        } else if (c === ')') {
+            paren--
+        } else if (c === '[') {
+            square++
+        } else if (c === ']') {
+            square--
+        } else if (c === '{') {
+            curly++
+        } else if (c === '}') {
+            curly--
+        }
+    }
+    if (i === 0 || begin !== i) {
+        pushDir()
+    }
+
+    function pushDir() {
+        dir.expression = str.slice(begin, i).trim()
+        if (dir.key === undefined) {
+            dir.key = str.slice(argIndex, i).trim()
+        } else if (lastFilterIndex !== begin) {
+            pushFilter()
+        }
+        if (i === 0 || dir.key) {
+            dirs.push(dir)
+        }
+    }
+
+    function pushFilter() {
+        var exp = str.slice(lastFilterIndex, i).trim(),
+            filter
+        if (exp) {
+            filter = {}
+            var tokens = exp.match(FILTER_TOKEN_RE)
+            filter.name = tokens[0]
+            // 通过FILTER_TOKEN_RE可以知道exp里面的arg以空格分割的
+            filter.args = tokens.length > 1 ? tokens.slice(1) : null
+        }
+        if (filter) {
+            (dir.filters = dir.filters || []).push(filter)
+        }
+        lastFilterIndex = i + 1
+    }
+
+    return dirs
+}
+/**
+ *  Inline computed filters so they become part
+ *  of the expression
+ *  函数内联filter,
+ * e.g msg | test =>  this.$compiler.getOption("filters", "test").call(this,msg))
+ */
+Directive.inlineFilters = function (key, filters) {
+    var args, filter
+    for (var i = 0, l = filters.length; i < l; i++) {
+        filter = filters[i]
+        args = filter.args
+            ? ',"' + filter.args.map(escapeQuote).join('","') + '"'
+            : ''
+        key = 'this.$compiler.getOption("filters", "' +
+            filter.name +
+            '").call(this,' +
+            key + args +
+            ')'
+    }
+    return key
+}
+
+/**
+ *  Convert double quotes to single quotes
+ *  so they don't mess up the generated function body
+ */
+function escapeQuote(v) {
+    return v.indexOf('"') > -1
+        ? v.replace(QUOTE_RE, '\'')
+        : v
+}
+module.exports = Directive
