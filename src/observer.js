@@ -1,7 +1,8 @@
 /********************************
  *  这是观察者模式里面的发布者。
- *  入口函数应该是watch, 下面是它的调用顺序，可以看出它是个递归函数， watch->watch
+ *  入口函数应该是watch或者observe, 下面是它的调用顺序，可以看出它是个递归函数， watch->watch
  *  watch -> (watchObject/watchArray) -> (convent & conventKey) -> observe -> watch
+ *  observe->watch->(watchObject/watchArray) -> (convent & conventKey) -> observe
  *  1. watch函数里面分2部分， watchObject, watchArray 
  *  2. convent函数作用是给watch的数组或者对象，安装触发器(__emitter__)
  *  3. convertKey循环遍历数组或者对象，对里面的属性进行拦截， 对象是拦截set,get; 数组拦截mutate, 同时通过__emitter__发布消息（触发事件）
@@ -28,6 +29,7 @@ var Emitter = require('./emitter'),
 
 // The proxy prototype to replace the __proto__ of
 // an observed array
+//  测试用例 observer.test.js 302行， Augmentations
 var ArrayProxy = Object.create(Array.prototype)
 def(ArrayProxy, '$set', function (index, data) {
     return this.splice(index, 1, data)[0]
@@ -47,6 +49,8 @@ def(ArrayProxy, '$remove', function (index) {
  *  them with the parent Array.
  */
 // 对数组内置的一些方法设置拦截器
+// 测试用例大约在166行observer.test.js 里Mutator Methods
+// 针对push, pop , shift , unshift, splice, sort, reverse
 function watchMutation(method) {
     def(ArrayProxy, method, function () {
         var args = slice.call(arguments),
@@ -69,7 +73,7 @@ function watchMutation(method) {
 
         // emit the mutation event
         // 触发mutate事件
-        this.__emiter__.emit('mutate', '', this, {
+        this.__emitter__.emit('mutate', '', this, {
             method: method,
             args: args,
             result: result,
@@ -81,6 +85,7 @@ function watchMutation(method) {
 }
 
 // intercept mutation methods
+// 测试用例： 1. should overwrite the native array mutator methods
 ;[
     'push',
     'pop',
@@ -105,14 +110,14 @@ function linkArrayElements(arr, items) {
             if (isWatchable(item)) { // 检测item是否是对象等
                 // if object is not converted for observing
                 // convert it...
-                if (!item.__emiter__) {
+                if (!item.__emitter__) {
                     // convert主要是为item添加emitter
                     convert(item)
                     // watch即通过get,set进行属性拦截，通过上面添加的emitter触发定义的事件
                     watch(item)
                 }
                 // 在emitter上面设置item的父结构
-                owners = item.__emiter__.owners
+                owners = item.__emitter__.owners
                 if (owners.indexOf(arr) < 0) {
                     owners.push(arr)
                 }
@@ -129,8 +134,8 @@ function unlinkArrayElements(arr, items) {
         var i = items.length, item
         while (i--) {
             item = items[i]
-            if (item && item.__emiter__) {
-                var owners = item.__emiter__.owners
+            if (item && item.__emitter__) {
+                var owners = item.__emitter__.owners
                 // 我对vue这行代码有疑问，我觉得应该是owners.splice(owners.indexOf(arr), 1)
                 // 应该只删一个元素， 而下面的把后面的元素全删了 
                 if (owners) owners.splice(owners.indexOf(arr))
@@ -155,7 +160,7 @@ def(ObjProxy, '$delete', function (key) {
     // trigger set events
     this[key] = void 0
     delete this[key]
-    this.__emiter__.emit('delete', key)
+    this.__emitter__.emit('delete', key)
 }, !hasProto)
 
 // Watch Helpers --------------------------------------------------------------
@@ -173,9 +178,10 @@ function isWatchable(obj) {
  *  Convert an Object/Array to give it a change emitter.
  */
 function convert(obj) {
-    if (obj.__emiter__) return true
+    if (obj.__emitter__) return true
     var emitter = new Emitter()
     def(obj, '__emitter__', emitter)
+    // 测试用例为：should emit for objects added later too
     emitter.on('set', function (key, val, propagate) {
         if (propagate) propagateChange(obj) // 通知父节点 obj.__emitter__.owners
     }).on('mutate', function () {
@@ -194,7 +200,7 @@ function propagateChange(obj) {
     var owners = obj.__emitter__.owners,
         i = owners.length
     while (i--) {
-        owners[i].__emiter__.emit('set', '', '', true)
+        owners[i].__emitter__.emit('set', '', '', true)
     }
 }
 
@@ -272,10 +278,9 @@ function convertKey(obj, key, propagate) {
             var oldVal = values[key]
             unobserve(oldVal, key, emitter)
             // 把oldVal上面有的属性而newVal上面没有的，拷贝放入newVal
-            copyPaths(newVal, oldVal) 
+            copyPaths(newVal, oldVal)
             // an immediate property should notify its parent
             // to emit set for itself too
-            console.log('newVal', newVal)
             init(newVal, true)
         }
     })
@@ -296,7 +301,7 @@ function convertKey(obj, key, propagate) {
  */
 // 单纯触发事件
 function emitSet(obj) {
-    var emitter = obj && obj.__emiter__
+    var emitter = obj && obj.__emitter__
     if (!emitter) return
     if (isArray(obj)) {
         emitter.emit('set', 'length', obj.length)
@@ -345,7 +350,7 @@ function ensurePath(obj, key) {
         sec = path[i]
         if (!obj[sec]) {
             obj[sec] = {}
-            if (obj.__emiter__) convertKey(obj, sec)
+            if (obj.__emitter__) convertKey(obj, sec)
         }
         obj = obj[sec]
     }
@@ -353,7 +358,7 @@ function ensurePath(obj, key) {
         sec = path[i]
         if (!(hasOwn.call(obj, sec))) {
             obj[sec] = void 0
-            if (obj.__emiter__) convertKey(obj, sec)
+            if (obj.__emitter__) convertKey(obj, sec)
         }
     }
 }
@@ -391,10 +396,12 @@ function observe(obj, rawPath, observer) {
                 observer.emit('set', rawPath, obj, true)
             }
         },
+        // 涉及的测试用例: 1. should emit set for .length when it mutates
         mutate: function (key, val, mutation) {
             // if the Array is a root value
             // the key will be null
-            var fixedPath = key ? path + key : rawPath
+            var fixedPath = key ? path + key : rawPath,
+                m = mutation.method
             observer.emit('mutate', fixedPath, val, mutation)
             // also emit set for Array's length when it mutates
             if (m !== 'sort' && m !== 'reverse') {
@@ -405,7 +412,7 @@ function observe(obj, rawPath, observer) {
     // attach the listeners to the child observer.
     // now all the events will propagate upwards.
     // 监听get, set, mutate, 执行函数的主要内容是父对象再次emit
-    emitter.on('get', proxies.get) 
+    emitter.on('get', proxies.get)
         .on('set', proxies.set)
         .on('mutate', proxies.mutate)
     if (alreadyConverted) { // 对象已经被其他的监听了
@@ -421,12 +428,12 @@ function observe(obj, rawPath, observer) {
  *  Cancel observation, turn off the listeners.
  */
 function unobserve(obj, path, observer) {
-    if (!obj || !obj.__emiter__) return
+    if (!obj || !obj.__emitter__) return
     path = path ? path + '.' : ''
     var proxies = observer.proxies[path]
     if (!proxies) return
     // turn off listeners
-    obj.__emiter__.off('get', proxies.get)
+    obj.__emitter__.off('get', proxies.get)
         .off('set', proxies.set)
         .off('mutate', proxies.mutate)
     // remove reference
