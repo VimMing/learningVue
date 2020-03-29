@@ -1,12 +1,107 @@
 var dirId = 1,
     ARG_RE = /^[^\{\?]+$/, // 参数
     FILTER_TOKEN_RE = /[^\s'"]+|'[^']+'|"[^"]+"/g, // filter关键字
-    // NESTING_RE = /^\$(parent|root)\./,
-    // SINGLE_VAR_RE = /^[\w\.$]+$/,
+    NESTING_RE = /^\$(parent|root)\./,
+    SINGLE_VAR_RE = /^[\w\.$]+$/,
     QUOTE_RE = /"/g,
     TextParser = require('./text-parser')
-function Directive() {
+function Directive(name, ast, definition, compiler, el) {
+    this.id = dirId++
+    this.name = name
+    this.vm = compiler.vm
+    this.el = el
+    this.computeFilters = false
+    this.key = ast.key
+    this.arg = ast.arg
+    this.expression = ast.expression
 
+    var isEmpty = this.expression === ''
+
+    // mix in properties from the directive definition
+    if (typeof definition === 'function') {
+        this[isEmpty ? 'bind' : 'update'] = definition
+    } else {
+        for (var prop in definition) {
+            this[prop] = definition[prop]
+        }
+    }
+    // empty expression, we're done.
+    if (isEmpty || this.isEmpty) {
+        this.isEmpty = true
+        return
+    }
+    if (TextParser.Regex.test(this.key)) {
+        this.key = compiler.eval(this.key)
+        if (this.isLiteral) {
+            this.expression = this.key
+        }
+    }
+    var filters = ast.filters, filter, fn, i, l, computed
+    if (filters) {
+        this.filters = []
+        for (i = 0, l = filters.length; i < l; i++) {
+            filter = filters[i]
+            fn = this.compiler.getOption('filters', filter.name)
+            if (fn) {
+                filter.apply = fn
+                this.filters.push(filter)
+                if (fn.computed) {
+                    computed = true
+                }
+            }
+        }
+    }
+    if (!this.filters || !this.filters.length) {
+        this.filters = null
+    }
+    if (computed) {
+        this.computedKey = Directive.inlineFilters(this.key, this.filters)
+        this.filters = null
+    }
+    this.isExp = computed || SINGLE_VAR_RE.test(this.key) || NESTING_RE.test(this.key)
+}
+
+var DirProto = Directive.prototype
+
+/**
+ *  called when a new value is set 
+ *  for computed properties, this will only be called once
+ *  during initialization.
+ */
+DirProto.$update = function (value, init) {
+    if (this.$lock) return
+    if (init || value !== this.value || (value && typeof value === 'object')) {
+        this.value = value
+        if (this.update) {
+            this.update(
+                this.filters && !this.computeFilters ?
+                    this.$applyFilters(value) : value,
+                init
+            )
+        }
+    }
+}
+
+/**
+ *  pipe the value through filters
+ */
+DirProto.$applyFilters = function (value) {
+    var filtered = value, filter
+    for (var i = 0, l = this.filters.length; i < l; i++) {
+        filter = this.filters[i]
+        filtered = filter.apply.apply(this.vm, [filtered].concat(filter.args))
+    }
+    return filtered
+}
+
+/**
+ *  Unbind diretive
+ */
+DirProto.$unbind = function () {
+    // this can be called before the el is even assigned...
+    if (!this.el || !this.vm) return
+    if (this.unbind) this.unbind()
+    this.vm = this.el = this.binding = this.compiler = null
 }
 
 /**
