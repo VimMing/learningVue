@@ -65,7 +65,7 @@ function traceScope(path, compiler, data) {
     var rel = '',
         dist = 0,
         self = compiler
-
+    // 不明白下面if的代码， 可以结合exports.eval看，你就明白了。
     if (data && utils.get(data, path) !== undefined) {
         // hack: temporarily attached data
         return '$temp.'
@@ -159,9 +159,11 @@ exports.parse = function (exp, compiler, data) {
         // keep track of the first char
         // 变量c的内容为：[^$\w\.]匹配内容， 通常为 “ ”， “（”
         var c = path.charAt(0)
+        // 真正的path
         path = path.slice(1)
         var val = "this." + traceScope(path, compiler, data) + path
         if (!has[path]) {
+            // accessors会拼接到exp前面，有点像变量声明。
             accessors += val + ';'
             has[path] = 1
         }
@@ -172,6 +174,7 @@ exports.parse = function (exp, compiler, data) {
     function restoreStrings(str, i) {
         return strings[i]
     }
+    // 生成匿名函数
     return makeGetter(body, exp)
 }
 
